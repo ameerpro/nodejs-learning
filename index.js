@@ -1,47 +1,56 @@
 const express = require("express");
+const multer = require("multer");
+require("./config");
+const Product = require("./product");
+
 const app = express();
-const route = express.Router();
-const dbConnect = require("./mongodb");
-const insertRoute = require("./insert");
-const updateRoute = require("./update");
-const deleteRoute = require("./delete");
+app.use(express.json());
 
-const getData = async () => {
-  let data = await dbConnect();
-  data = await data.find({ price: 250 }).toArray();
-  console.log(data);
-};
-
-getData();
-
-// insertRoute();
-
-updateRoute();
-
-deleteRoute();
-
-const requestFilters = require("./profile/profile_middleware");
-const updateData = require("./update");
-
-route.use(requestFilters);
-
-// app.use(requestFilters);
-app.get("/", (req, res) => {
-  res.send("Welcome to Home Page");
+app.post("/create", async (req, resp) => {
+  let data = new Product(req.body);
+  let result = await data.save();
+  resp.send(result);
 });
 
-route.get("/users", (req, res) => {
-  res.send("Welcome to Users Page");
+app.get("/products", async (req, resp) => {
+  let result = await Product.find();
+  resp.send(result);
 });
 
-app.get("/about", (req, res) => {
-  res.send("Welcome to About Page");
+app.delete("/delete/:_id", async (req, resp) => {
+  let result = await Product.deleteOne(req.params);
+  resp.send(result);
 });
 
-route.get("/contact", (req, res) => {
-  res.send("Welcome to Contact Page");
+app.put("/update/:_id", async (req, resp) => {
+  let result = await Product.updateOne(req.params, { $set: req.body });
+  resp.send(result);
 });
 
-app.use("/", route);
+app.get("/search/:key", async (req, resp) => {
+  let result = await Product.find({
+    $or: [
+      { name: { $regex: req.params.key } },
+      { category: { $regex: req.params.key } },
+      { brand: { $regex: req.params.key } },
+    ],
+  });
+  resp.send(result);
+});
 
-app.listen(4000);
+const uploadFile = multer({
+  storage: multer.diskStorage({
+    destination: function (req, file, cb) {
+      cb(null, "uploads");
+    },
+    filename: function (req, file, cb) {
+      cb(null, file.fieldname + "-" + Date.now() + ".pdf");
+    },
+  }),
+}).single("file");
+
+app.post("/upload", uploadFile, (req, resp) => {
+  resp.send("File uploaded");
+});
+
+app.listen(5500);
